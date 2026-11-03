@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>フェアリーピース箱入り娘 3×5</title>
+
+<style>
+
+body{
+
+  font-family:system-ui;
+
+  margin:20px;
+
+  background:#f4f4f4;
+
+  text-align:center;
+
+}
+
+#board{
+
+  display:grid;
+
+  grid-template-columns:repeat(3,72px);
+
+  gap:4px;
+
+  justify-content:center;
+
+  margin:18px auto;
+
+}
+
+.cell{
+
+  width:72px;
+
+  height:72px;
+
+  border:2px solid #666;
+
+  background:#fff;
+
+  display:flex;
+
+  align-items:center;
+
+  justify-content:center;
+
+  font-size:38px;
+
+  cursor:pointer;
+
+  user-select:none;
+
+}
+
+.sel{outline:4px solid #4da3ff;}
+
+.dst{background:#d9ecff;}
+
+.red{color:#d22;font-weight:bold;}
+
+.black{color:#111;font-weight:bold;}
+
+.v{color:#2878e8;font-weight:bold;}
+
+.h{color:#14804a;font-weight:bold;}
+
+button{padding:8px 14px;margin:4px;}
+
+#msg{min-height:24px;margin:8px;}
+
+#clear{
+
+  display:none;
+
+  background:#c7ffd3;
+
+  border:2px solid #2a7;
+
+  padding:10px;
+
+  max-width:320px;
+
+  margin:10px auto;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>フェアリーピース箱入り娘（3×5）</h2>
+
+<p>赤Wを最下段中央へ運べばクリア</p>
+
+<div id="clear">🎉 クリア！ 赤Wがゴールしました。</div>
+
+<div id="board"></div>
+
+<div id="msg">コマを選んでください。</div>
+
+<div>
+
+  <button id="reset">最初から</button>
+
+  <button id="step" disabled>▶ 解答を1手進める</button>
+
+  <span id="prog">0/31手</span>
+
+</div>
+
+<script>
+
+const initial=[
+
+ "W","R","W",
+
+ "V","H","W",
+
+ "H","V","W",
+
+ "W","H","V",
+
+ "W",null,"H"
+
+];
+
+// 最後に使った31手再生用
+
+const solution=[
+
+10,7,4,1,2,5,8,11,10,9,
+
+6,3,4,7,8,11,14,13,10,7,
+
+6,9,12,13,10,11,8,5,4,1,13
+
+];
+
+let board=initial.slice();
+
+let selected=null;
+
+let replay=0;
+
+let replayEnabled=false;
+
+const boardEl=document.getElementById("board");
+
+const msg=document.getElementById("msg");
+
+const clear=document.getElementById("clear");
+
+const stepBtn=document.getElementById("step");
+
+const prog=document.getElementById("prog");
+
+function legal(i){
+
+  const p=board[i];
+
+  if(!p)return[];
+
+  const r=Math.floor(i/3);
+
+  const c=i%3;
+
+  let cand=[];
+
+  if(p==="W"||p==="R")
+
+    cand=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+
+  if(p==="V")
+
+    cand=[[r-1,c],[r+1,c]];
+
+  if(p==="H")
+
+    cand=[[r,c-1],[r,c+1]];
+
+  return cand
+
+    .filter(([rr,cc])=>rr>=0&&rr<5&&cc>=0&&cc<3)
+
+    .map(([rr,cc])=>rr*3+cc)
+
+    .filter(j=>board[j]===null);
+
+}
+
+function draw(){
+
+  boardEl.innerHTML="";
+
+  for(let i=0;i<15;i++){
+
+    const d=document.createElement("div");
+
+    d.className="cell";
+
+    if(i===selected)d.classList.add("sel");
+
+    if(selected!==null&&legal(selected).includes(i))
+
+      d.classList.add("dst");
+
+    const p=board[i];
+
+    if(p==="R")d.innerHTML='<span class="red">W</span>';
+
+    else if(p==="W")d.innerHTML='<span class="black">W</span>';
+
+    else if(p==="V")d.innerHTML='<span class="v">V</span>';
+
+    else if(p==="H")d.innerHTML='<span class="h">H</span>';
+
+    d.onclick=()=>clickCell(i);
+
+    boardEl.appendChild(d);
+
+  }
+
+  if(board[13]==="R")
+
+    clear.style.display="block";
+
+}
+
+function clickCell(i){
+
+  if(board[13]==="R")return;
+
+  if(selected!==null&&legal(selected).includes(i)){
+
+    board[i]=board[selected];
+
+    board[selected]=null;
+
+    selected=null;
+
+    msg.textContent="移動しました。";
+
+  }else if(board[i]){
+
+    selected=i;
+
+    msg.textContent=
+
+      legal(i).length?
+
+      "青いマスへ移動できます。":
+
+      "このコマは今動けません。";
+
+  }else{
+
+    selected=null;
+
+  }
+
+  draw();
+
+}
+
+document.getElementById("reset").onclick=()=>{
+
+  board=initial.slice();
+
+  selected=null;
+
+  replay=0;
+
+  replayEnabled=true;
+
+  clear.style.display="none";
+
+  stepBtn.disabled=false;
+
+  prog.textContent="0/31手";
+
+  msg.textContent="リセットしました。解答再生が使えます。";
+
+  draw();
+
+};
+
+stepBtn.onclick=()=>{
+
+  if(!replayEnabled)return;
+
+  if(replay>=solution.length)return;
+
+  const target=solution[replay];
+
+  const empty=board.indexOf(null);
+
+  const adj=[
+
+    empty-3,
+
+    empty+3,
+
+    empty-1,
+
+    empty+1
+
+  ].filter(x=>
+
+      x>=0&&x<15&&
+
+      Math.abs(Math.floor(x/3)-Math.floor(empty/3))
+
+      +Math.abs(x%3-empty%3)===1);
+
+  if(adj.includes(target)){
+
+    board[empty]=board[target];
+
+    board[target]=null;
+
+  }
+
+  replay++;
+
+  prog.textContent=`${replay}/31手`;
+
+  if(board[13]==="R"){
+
+    clear.style.display="block";
+
+    stepBtn.disabled=true;
+
+  }
+
+  draw();
+
+};
+
+draw();
+
+</script>
+
+</body>
+
+</html>
